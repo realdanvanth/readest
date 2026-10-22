@@ -47,44 +47,56 @@ const StatsPanel: React.FC = () => {
   const [overall, setOverall] = useState<OverallStats | null>(null);
   const [dailyData, setDailyData] = useState<DailyReading[]>([]);
 
-  const loadStats = useCallback(async () => {
-    if (!appService) return;
-    try {
-      const statsDb = await StatisticsDb.open(appService);
-      const service = new ReadingStatsService(statsDb);
+  const loadStats = useCallback(
+    async (isCancelled: () => boolean) => {
+      if (!appService) return;
+      setLoading(true);
+      try {
+        const statsDb = await StatisticsDb.open(appService);
+        const service = new ReadingStatsService(statsDb);
 
-      let startISO: string;
-      let endISO: string;
+        let startISO: string;
+        let endISO: string;
 
-      if (activeTab === 'activities') {
-        startISO = `${selectedYear}-01-01`;
-        endISO = `${selectedYear}-12-31`;
-      } else {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - 365);
-        startISO = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-        endISO = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        if (activeTab === 'activities') {
+          startISO = `${selectedYear}-01-01`;
+          endISO = `${selectedYear}-12-31`;
+        } else {
+          const endDate = new Date();
+          const startDate = new Date();
+          startDate.setDate(startDate.getDate() - 365);
+          startISO = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+          endISO = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+        }
+
+        const [streakInfo, overallStats, daily] = await Promise.all([
+          service.getStreakInfo(),
+          service.getOverallStats(),
+          service.getDailyReadingMap(startISO, endISO),
+        ]);
+
+        if (!isCancelled()) {
+          setStreak(streakInfo);
+          setOverall(overallStats);
+          setDailyData(daily);
+        }
+      } catch (err) {
+        console.error('[StatsPanel] Failed to load reading stats:', err);
+      } finally {
+        if (!isCancelled()) {
+          setLoading(false);
+        }
       }
-
-      const [streakInfo, overallStats, daily] = await Promise.all([
-        service.getStreakInfo(),
-        service.getOverallStats(),
-        service.getDailyReadingMap(startISO, endISO),
-      ]);
-
-      setStreak(streakInfo);
-      setOverall(overallStats);
-      setDailyData(daily);
-    } catch (err) {
-      console.error('[StatsPanel] Failed to load reading stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [appService, selectedYear, activeTab]);
+    },
+    [appService, selectedYear, activeTab],
+  );
 
   useEffect(() => {
-    loadStats();
+    let cancelled = false;
+    loadStats(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
   }, [loadStats]);
 
   // ── Render ──────────────────────────────────────────────────────────

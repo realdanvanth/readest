@@ -61,6 +61,17 @@ function daysAgo(n: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * Unix timestamp for today's local midnight (00:00:00).
+ * Using midnight guarantees the timestamp is always within today and always
+ * ≤ nowUnix, even when a test runs in the first seconds after midnight.
+ */
+function todayMidnightUnix(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 describe('ReadingStatsService', () => {
@@ -242,7 +253,7 @@ describe('ReadingStatsService', () => {
 
     it('counts today reading time', async () => {
       const bookId = await insertBook(db, 'book1');
-      await insertEvent(db, bookId, 1, dateToUnix(todayISO()), 500);
+      await insertEvent(db, bookId, 1, todayMidnightUnix(), 500);
       await insertEvent(db, bookId, 2, dateToUnix(daysAgo(5)), 300);
 
       const result = await service.getOverallStats();

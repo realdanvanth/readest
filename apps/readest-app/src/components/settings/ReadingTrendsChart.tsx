@@ -74,19 +74,23 @@ export const ReadingTrendsChart: React.FC<ReadingTrendsChartProps> = ({ data }) 
       }
     } else {
       // Weekly aggregation for 3M, 6M, 1Y
-      const numWeeks = range === '3M' ? 12 : range === '6M' ? 26 : 52;
-      const daysPerBucket = Math.ceil(daysBack / numWeeks);
+      // Ceiling division ensures we cover daysBack exactly without overrunning.
+      const numWeeks = Math.ceil(daysBack / 7);
+      // Anchor: the last bucket ends today; work backwards from today.
+      const anchor = new Date();
+      anchor.setHours(23, 59, 59, 999);
 
-      for (let w = 0; w < numWeeks; w++) {
-        const bucketStart = new Date(startDate);
-        bucketStart.setDate(startDate.getDate() + w * daysPerBucket);
-        const bucketEnd = new Date(bucketStart);
-        bucketEnd.setDate(bucketStart.getDate() + daysPerBucket - 1);
+      for (let w = numWeeks - 1; w >= 0; w--) {
+        const bucketEnd = new Date(anchor);
+        bucketEnd.setDate(anchor.getDate() - w * 7);
+        const bucketStart = new Date(bucketEnd);
+        bucketStart.setDate(bucketEnd.getDate() - 6);
+        bucketStart.setHours(0, 0, 0, 0);
 
         let totalSec = 0;
         let maxBooks = 0;
 
-        for (let d = 0; d < daysPerBucket; d++) {
+        for (let d = 0; d < 7; d++) {
           const cur = new Date(bucketStart);
           cur.setDate(bucketStart.getDate() + d);
           const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
